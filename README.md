@@ -3,7 +3,27 @@
 Read-only dashboard to watch one or more devices (robots, servers, anything that
 speaks Zenoh) from the browser. React + Vite + Tailwind + `@eclipse-zenoh/zenoh-ts`.
 
-## Run
+## Install
+
+### Desktop app (recommended)
+
+Download the installer for your system from the
+[Releases page](https://github.com/ThomasDuvinage/zenoh-supervisor/releases):
+
+| System | File |
+| --- | --- |
+| Linux | `.deb`, `.rpm` or `.AppImage` |
+| Windows | `.msi` or `-setup.exe` |
+| macOS (Apple silicon) | `aarch64.dmg` |
+| macOS (Intel) | `x64.dmg` |
+
+The installers are not code-signed yet, so the first launch shows a warning:
+macOS: right-click the app, then **Open**. Windows SmartScreen: **More info**, then **Run anyway**.
+On Linux, `chmod +x` the AppImage before running it.
+
+The app bundles `zenohd` and the remote-api plugin, so you do not need to install Zenoh.
+
+### Web version
 
 ```bash
 npm install
@@ -11,9 +31,27 @@ npm run dev        # http://localhost:5173
 npm run build      # static files in dist/, serve with any web server
 ```
 
-Each connection is a WebSocket URL of a **zenoh-plugin-remote-api** bridge
-(e.g. `ws://host:10000`, see `../etc/router.json5`). Browsers cannot use the
-TCP port 7447 directly, and the stock `eclipse/zenoh` image has no remote-api plugin.
+The browser cannot open raw Zenoh TCP (port 7447), so it needs a router running the
+**zenoh-plugin-remote-api** bridge. The stock `eclipse/zenoh` image does not include it.
+
+## Usage
+
+1. **Get a router with the bridge.** Either:
+   - desktop app: click **Start local router** in the sidebar and pick a Zenoh config
+     (try `examples/single-router/router.json5`). The app starts the bundled `zenohd`
+     and adds a connection to its WebSocket port for you; or
+   - run your own: `zenohd -c router.json5` with `plugins: { remote_api: { websocket_port: "10000" } }`.
+2. **Add a device.** Use **Add device** with a name and the bridge URL (`ws://host:10000`).
+   Connections can be grouped, auto-connect on start, and are read-only by default.
+3. **Subscribe.** Open the device and add key expressions, e.g. `robot1/sensors/**`
+   (data) or `devices/*/alive` (liveliness). Set a unit, min/max and a stale timeout to get
+   out-of-range and stale flags.
+4. **Watch.** The Overview shows every connection and the merged network graph; each device
+   has tabs for live values, log, queries, topology and (if you turn read-only off) publish.
+5. **Save your setup.** Import, export or reset the config from the sidebar buttons (see Config).
+
+Try it without hardware: follow [examples/single-router](examples/single-router/README.md)
+(one router, one fake robot) or [examples/two-routers](examples/two-routers/README.md).
 
 ## Config
 
@@ -79,6 +117,7 @@ adds no traffic and cannot delay the devices; stats are computed on the UI tick,
 
 Same frontend, wrapped in a native shell. "Start local router" runs a bundled `zenohd` with the
 remote-api plugin on a Zenoh config you pick, then connects to its `ws://127.0.0.1:<port>`.
+This section is for building it yourself; end users should use the installers above.
 
 ```bash
 npm run fetch:zenoh     # once per target: downloads zenohd + plugin into src-tauri/ (gitignored)
@@ -91,4 +130,5 @@ npm run tauri build     # installers in src-tauri/target/release/bundle/
 - The bundled plugin directory overrides `plugins_loading/search_dirs` from your config.
 - Zenoh version is pinned in `scripts/fetch-zenoh.mjs` (`ZENOH_VERSION`); `zenohd` and the plugin must match.
 - CI (`.github/workflows/build.yml`) builds Linux, Windows and macOS (arm64 + x64) installers.
+  Pushing a tag like `v0.1.0` attaches them to a draft GitHub release; publish it from the Releases page.
 - Run from a non-snap terminal; VS Code's snap env breaks GTK (see GSETTINGS_SCHEMA_DIR).
