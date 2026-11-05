@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { DeviceRuntime } from "./runtime";
+import { setProtoFiles, validateProtoFiles, type ProtoFile } from "./proto";
 import type { AppConfig, DeviceConfig, Status, SubscriptionConfig } from "./types";
 
 const runtimes = new Map<string, DeviceRuntime>();
@@ -15,6 +16,7 @@ interface State {
   selectedId: string | null;
   seeded: boolean;
   statuses: Record<string, Status>;
+  schemas: ProtoFile[];
   /** bumped ~4x/s while any runtime has new data; components read runtime data on each render */
   tick: number;
 
@@ -26,6 +28,9 @@ interface State {
   addSubscription(deviceId: string, sub: Omit<SubscriptionConfig, "id">): Promise<void>;
   removeSubscription(deviceId: string, subId: string): Promise<void>;
   updateSubscription(deviceId: string, subId: string, patch: Partial<Omit<SubscriptionConfig, "id">>): void;
+  /** Add (or replace by file name) .proto files. Returns an error message and changes nothing when they do not load. */
+  addSchemas(files: ProtoFile[]): string | undefined;
+  removeSchema(name: string): void;
   connect(id: string): Promise<void>;
   disconnect(id: string): Promise<void>;
   importConfig(cfg: AppConfig): Promise<void>;
@@ -60,6 +65,7 @@ export const useStore = create<State>()(
         selectedId: null,
         seeded: false,
         statuses: {},
+        schemas: [],
         tick: 0,
 
         init() {
@@ -69,6 +75,7 @@ export const useStore = create<State>()(
             await get().resetToFile();
             set({ seeded: true });
           }
+          setProtoFiles(get().schemas);
           for (const d of get().devices) {
             const rt = ensureRuntime(d);
             if (d.autoConnect) void rt.connect();
@@ -131,20 +138,36 @@ export const useStore = create<State>()(
           if (rt && sub) rt.updateSubscriptionConfig(sub);
         },
 
+        addSchemas(files) {
+          const next = [...get().schemas.filter((x) => !files.some((f) => f.name === x.name)), ...files];
+          const err = validateProtoFiles(next);
+          if (err) return err;
+          setProtoFiles(next);
+          set({ schemas: next });
+        },
+
+        removeSchema(name) {
+          const next = get().schemas.filter((x) => x.name !== name);
+          setProtoFiles(next);
+          set({ schemas: next });
+        },
+
         connect: async (id) => runtimes.get(id)?.connect(),
         disconnect: async (id) => runtimes.get(id)?.disconnect(),
 
         async importConfig(cfg) {
           for (const rt of runtimes.values()) await rt.disconnect();
           runtimes.clear();
-          set({ devices: cfg.devices, statuses: {}, selectedId: null });
+          const schemas = cfg.schemas ?? [];
+          setProtoFiles(schemas);
+          set({ devices: cfg.devices, schemas, statuses: {}, selectedId: null });
           for (const d of cfg.devices) {
             const rt = ensureRuntime(d);
             if (d.autoConnect) void rt.connect();
           }
         },
 
-        exportConfig: () => ({ version: 1, devices: get().devices }),
+        exportConfig: () => ({ version: 1, devices: get().devices, schemas: get().schemas }),
 
         async resetToFile() {
           try {
@@ -158,7 +181,7 @@ export const useStore = create<State>()(
     },
     {
       name: "zenoh-supervisor",
-      partialize: (s) => ({ devices: s.devices, selectedId: s.selectedId, seeded: s.seeded }),
+      partialize: (s) => ({ devices: s.devices, schemas: s.schemas, selectedId: s.selectedId, seeded: s.seeded }),
     },
   ),
 );

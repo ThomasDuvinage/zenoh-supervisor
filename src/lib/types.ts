@@ -1,3 +1,5 @@
+import type { ProtoFile } from "./proto";
+
 export type SubKind = "data" | "liveliness";
 export type Status = "disconnected" | "connecting" | "connected" | "error";
 
@@ -22,6 +24,13 @@ export interface LatencyConfig {
   naive?: "utc" | "local";
 }
 
+/** How a payload is turned into a value. Absent = plain text / number / JSON, guessed. */
+export interface DecoderConfig {
+  kind: "protobuf";
+  /** fully qualified message name from the loaded schemas, e.g. "robot.Pose" */
+  messageType: string;
+}
+
 export interface SubscriptionConfig {
   id: string;
   keyexpr: string;
@@ -35,6 +44,7 @@ export interface SubscriptionConfig {
   min?: number;
   max?: number;
   latency?: LatencyConfig;
+  decoder?: DecoderConfig;
 }
 
 export interface DeviceConfig {
@@ -54,4 +64,6 @@ export interface DeviceConfig {
 export interface AppConfig {
   version: 1;
   devices: DeviceConfig[];
+  /** .proto files available to the Protobuf decoders */
+  schemas?: ProtoFile[];
 }
