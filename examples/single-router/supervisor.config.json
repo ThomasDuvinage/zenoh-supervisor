@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "devices": [
+    {
+      "id": "router",
+      "name": "Router",
+      "url": "ws://127.0.0.1:10000",
+      "group": "Example",
+      "autoConnect": true,
+      "readOnly": true,
+      "subscriptions": [
+        {
+          "id": "temp", "keyexpr": "demo/*/temperature", "label": "Temperature", "kind": "data",
+          "unit": "°C", "min": 0, "max": 80, "staleAfterSec": 5, "latency": { "source": "zenoh" }
+        },
+        { "id": "bat", "keyexpr": "demo/*/battery", "label": "Battery", "kind": "data", "unit": "%", "min": 20, "max": 100, "staleAfterSec": 5 },
+        { "id": "alive", "keyexpr": "devices/*/alive", "label": "Devices online", "kind": "liveliness" }
+      ]
+    }
+  ]
+}

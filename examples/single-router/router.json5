@@ -1,0 +1,12 @@
+{
+  // One router. Devices connect on tcp/7447, the supervisor on ws://127.0.0.1:10000.
+  //   zenohd -c router.json5          (desktop app: "Start local router" -> pick this file)
+  mode: "router",
+  listen: { endpoints: ["tcp/127.0.0.1:7447"] },
+  scouting: { multicast: { enabled: false } },
+  timestamping: { enabled: true },   // lets the supervisor measure latency from the Zenoh timestamp
+
+  // Only needed when running zenohd yourself; the desktop app overrides it with its bundled plugin.
+  plugins_loading: { enabled: true, search_dirs: ["/usr/lib"] },
+  plugins: { remote_api: { websocket_port: "10000" } },
+}

@@ -1,0 +1,11 @@
+{
+  // Router B: devices on tcp/7448, supervisor on ws://127.0.0.1:10001, linked to router A.
+  // Data published on one router is visible on the other.
+  mode: "router",
+  listen: { endpoints: ["tcp/127.0.0.1:7448"] },
+  connect: { endpoints: ["tcp/127.0.0.1:7447"] },
+  scouting: { multicast: { enabled: false } },
+  timestamping: { enabled: true },
+  plugins_loading: { enabled: true, search_dirs: ["/usr/lib"] },
+  plugins: { remote_api: { websocket_port: "10001" } },
+}
