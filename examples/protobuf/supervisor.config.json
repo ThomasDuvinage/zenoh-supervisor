@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "schemas": [
+    {
+      "name": "robot.proto",
+      "source": "syntax = \"proto3\";\n\npackage demo;\n\nenum Mode {\n  IDLE = 0;\n  MOVING = 1;\n  CHARGING = 2;\n}\n\nmessage Pose {\n  double x = 1;\n  double y = 2;\n  double theta = 3;\n}\n\nmessage RobotState {\n  string name = 1;\n  Mode mode = 2;\n  Pose pose = 3;\n  double battery = 4;   // percent\n  uint64 stamp_ns = 5;  // send time, epoch nanoseconds\n}\n"
+    }
+  ],
+  "devices": [
+    {
+      "id": "router",
+      "name": "Router",
+      "url": "ws://127.0.0.1:10000",
+      "group": "Example",
+      "autoConnect": true,
+      "readOnly": true,
+      "subscriptions": [
+        {
+          "id": "state",
+          "keyexpr": "demo/*/state",
+          "label": "Robot state",
+          "kind": "data",
+          "staleAfterSec": 5,
+          "decoder": {
+            "kind": "protobuf",
+            "messageType": "demo.RobotState"
+          },
+          "latency": {
+            "source": "json",
+            "field": "stamp_ns",
+            "unit": "ns"
+          }
+        }
+      ]
+    }
+  ]
+}

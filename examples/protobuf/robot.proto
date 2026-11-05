@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package demo;
+
+enum Mode {
+  IDLE = 0;
+  MOVING = 1;
+  CHARGING = 2;
+}
+
+message Pose {
+  double x = 1;
+  double y = 2;
+  double theta = 3;
+}
+
+message RobotState {
+  string name = 1;
+  Mode mode = 2;
+  Pose pose = 3;
+  double battery = 4;   // percent
+  uint64 stamp_ns = 5;  // send time, epoch nanoseconds
+}
