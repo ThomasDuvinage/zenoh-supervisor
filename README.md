@@ -2,7 +2,7 @@
 
 [![Release](https://img.shields.io/github/v/release/ThomasDuvinage/zenoh-supervisor?include_prereleases)](https://github.com/ThomasDuvinage/zenoh-supervisor/releases)
 [![Build](https://img.shields.io/github/actions/workflow/status/ThomasDuvinage/zenoh-supervisor/build.yml?label=build)](https://github.com/ThomasDuvinage/zenoh-supervisor/actions/workflows/build.yml)
-[![License](https://img.shields.io/github/license/ThomasDuvinage/zenoh-supervisor)](LICENSE)
+[![License](https://img.shields.io/badge/license-BSD%202--Clause-blue)](LICENSE)
 ![Platforms](https://img.shields.io/badge/platforms-Linux%20%7C%20Windows%20%7C%20macOS-blue)
 [![Zenoh](https://img.shields.io/badge/Zenoh-1.10.1-orange)](https://zenoh.io)
 [![Website](https://img.shields.io/badge/web-GitHub%20Pages-brightgreen)](https://thomasduvinage.github.io/zenoh-supervisor/)
