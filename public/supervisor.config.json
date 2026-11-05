@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "devices": [
+    {
+      "id": "local-bridge",
+      "name": "Local bridge",
+      "url": "ws://127.0.0.1:10000",
+      "group": "Dev",
+      "autoConnect": true,
+      "readOnly": true,
+      "subscriptions": [
+        { "id": "s1", "keyexpr": "demo/**", "label": "Demo topics", "kind": "data", "staleAfterSec": 10 },
+        { "id": "s2", "keyexpr": "devices/*/alive", "label": "Devices online", "kind": "liveliness" }
+      ]
+    }
+  ]
+}

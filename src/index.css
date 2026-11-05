@@ -1,0 +1,8 @@
+@import "tailwindcss";
+
+:root { color-scheme: dark; }
+body { font-family: ui-sans-serif, system-ui, sans-serif; color: #e4e4e7; }
+.input { @apply w-full rounded-md border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm outline-none focus:border-sky-600; }
+.btn { @apply inline-flex items-center gap-1.5 rounded-md border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-sm hover:bg-zinc-800 disabled:opacity-40; }
+.btn-primary { @apply border-sky-600 bg-sky-700 hover:bg-sky-600; }
+.card { @apply rounded-lg border border-zinc-800 bg-zinc-900/60; }
