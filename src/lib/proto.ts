@@ -88,7 +88,12 @@ export function decodeProto(typeName: string, bytes: Uint8Array): unknown {
  *  the same bytes back is a strong hint it is: a wrong type usually leaves unknown fields behind. */
 export function isCanonical(typeName: string, bytes: Uint8Array): boolean {
   const t = lookup(typeName);
-  const again = t.encode(t.decode(bytes)).finish();
+  let again: Uint8Array;
+  try {
+    again = t.encode(t.decode(bytes)).finish();
+  } catch {
+    return false;
+  }
   if (again.length !== bytes.length) return false;
   for (let i = 0; i < bytes.length; i++) if (again[i] !== bytes[i]) return false;
   return true;
