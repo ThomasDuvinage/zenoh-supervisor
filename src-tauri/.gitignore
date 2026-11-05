@@ -1,0 +1,6 @@
+target
+gen
+binaries/*
+!binaries/README.md
+zenoh-plugins/*
+!zenoh-plugins/README.md
