@@ -34,6 +34,28 @@ npm run build      # static files in dist/, serve with any web server
 The browser cannot open raw Zenoh TCP (port 7447), so it needs a router running the
 **zenoh-plugin-remote-api** bridge. The stock `eclipse/zenoh` image does not include it.
 
+### From source
+
+Requirements: Node.js 20+, a stable [Rust toolchain](https://rustup.rs), and on Linux the
+Tauri system libraries:
+
+```bash
+sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libsoup-3.0-dev libssl-dev
+```
+
+```bash
+git clone git@github.com:ThomasDuvinage/zenoh-supervisor.git
+cd zenoh-supervisor
+npm ci
+npm run fetch:zenoh      # downloads zenohd + remote-api plugin for your machine
+npm run tauri dev        # run the desktop app with hot reload
+npm run tauri build      # installers in src-tauri/target/release/bundle/
+```
+
+Windows and macOS need the usual Tauri prerequisites (MSVC build tools and WebView2 on
+Windows, Xcode command line tools on macOS). See the
+[Tauri prerequisites](https://tauri.app/start/prerequisites/).
+
 ## Usage
 
 1. **Get a router with the bridge.** Either:
