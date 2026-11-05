@@ -438,7 +438,10 @@ export class DeviceRuntime {
     k.count++;
     k.lastTs = now;
     k.times.push(now);
-    if (k.times.length > 200) k.times.splice(0, k.times.length - 200);
+    const cutoff = now - RATE_WINDOW_MS;
+    let old = 0;
+    while (old < k.times.length && k.times[old] < cutoff) old++;
+    if (old) k.times.splice(0, old);
     if (typeof k.value === "number") {
       k.history.push(k.value);
       if (k.history.length > HISTORY) k.history.shift();
