@@ -2,22 +2,50 @@ syntax = "proto3";
 
 package demo;
 
-enum Mode {
-  IDLE = 0;
-  MOVING = 1;
-  CHARGING = 2;
+message Config {
+  string config = 1;
 }
 
-message Pose {
-  double x = 1;
-  double y = 2;
-  double theta = 3;
-}
-
-message RobotState {
+message BodySensor {
   string name = 1;
-  Mode mode = 2;
-  Pose pose = 3;
-  double battery = 4;   // percent
-  uint64 stamp_ns = 5;  // send time, epoch nanoseconds
+  repeated double orientation = 2;         // quaternion, (w, x, y, z)
+  repeated double angular_velocity = 3;    // (x, y, z)
+  repeated double linear_acceleration = 4; // (x, y, z)
+}
+
+message ForceSensor {
+  string name = 1;
+  repeated double force = 2;  // (x, y, z), sensor frame
+  repeated double torque = 3; // (x, y, z), sensor frame
+}
+
+message State {
+  repeated double position = 1;
+  repeated double velocity = 2;
+  repeated double torque = 3;
+  repeated BodySensor body_sensors = 4;
+  repeated ForceSensor force_sensors = 5;
+  uint64 stamp = 6; // sender steady clock [ns], echoed in Command.state_stamp
+}
+
+message Command {
+  double kp = 1;
+  double kd = 2;
+
+  repeated double position = 3;
+  repeated double velocity = 4;
+  repeated double torque = 5;
+  uint64 state_stamp = 6; // State.stamp of the latest state received
+  uint64 state_hold = 7;  // [ns] that state was held before this command was sent
+}
+
+message Envelope {
+  string topic = 1;
+  uint64 timestamp = 2; // send time, epoch nanoseconds
+
+  oneof payload {
+    Config config = 3;
+    State state = 4;
+    Command command = 5;
+  }
 }

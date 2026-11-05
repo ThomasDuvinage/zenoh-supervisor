@@ -1,9 +1,11 @@
-"""Fake robot: publishes a Protobuf `demo.RobotState` on demo/<name>/state.
+"""Fake robot: publishes Protobuf `demo.Envelope` messages (see robot.proto).
 
     pip install eclipse-zenoh protobuf
     protoc --python_out=. robot.proto
     python pub_proto.py robot1                      # router on tcp/127.0.0.1:7447
     python pub_proto.py robot2 --connect tcp/127.0.0.1:7448 --hz 5
+
+Keys: demo/<name>/state (Envelope holding a State), demo/<name>/command (Envelope holding a Command)
 """
 import argparse
 import math
@@ -14,8 +16,10 @@ import zenoh
 
 import robot_pb2
 
+JOINTS = 6
+
 p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-p.add_argument("name", help="robot name, used in the key expression")
+p.add_argument("name", help="robot name, used in the key expressions")
 p.add_argument("--connect", default="tcp/127.0.0.1:7447", help="router locator (default %(default)s)")
 p.add_argument("--hz", type=float, default=2.0, help="publish rate (default 2)")
 args = p.parse_args()
@@ -25,22 +29,42 @@ conf.insert_json5("mode", '"client"')
 conf.insert_json5("connect/endpoints", f'["{args.connect}"]')
 conf.insert_json5("scouting/multicast/enabled", "false")
 session = zenoh.open(conf)
-pub = session.declare_publisher(f"demo/{args.name}/state")
-print(f"{args.name}: publishing demo.RobotState on demo/{args.name}/state at {args.hz} Hz (Ctrl-C to stop)", flush=True)
+state_pub = session.declare_publisher(f"demo/{args.name}/state")
+command_pub = session.declare_publisher(f"demo/{args.name}/command")
+print(f"{args.name}: publishing demo.Envelope on demo/{args.name}/state and /command at {args.hz} Hz (Ctrl-C to stop)", flush=True)
 
-battery, angle = 100.0, 0.0
+t0 = time.monotonic_ns()
+phase = 0.0
 try:
     while True:
-        angle += 0.1
-        battery = max(0.0, battery - random.uniform(0, 0.3))
-        msg = robot_pb2.RobotState(
-            name=args.name,
-            mode=robot_pb2.MOVING if battery > 20 else robot_pb2.CHARGING,
-            pose=robot_pb2.Pose(x=2 * math.cos(angle), y=2 * math.sin(angle), theta=angle % (2 * math.pi)),
-            battery=battery,
-            stamp_ns=time.time_ns(),
+        phase += 0.1
+        q = [math.sin(phase + j) for j in range(JOINTS)]
+        dq = [math.cos(phase + j) for j in range(JOINTS)]
+
+        state = robot_pb2.State(
+            position=q,
+            velocity=dq,
+            torque=[random.uniform(-1, 1) for _ in range(JOINTS)],
+            body_sensors=[robot_pb2.BodySensor(
+                name="imu",
+                orientation=[1, 0, 0, 0],
+                angular_velocity=[0, 0, 0.1],
+                linear_acceleration=[0, 0, 9.81 + random.uniform(-0.05, 0.05)],
+            )],
+            force_sensors=[robot_pb2.ForceSensor(
+                name=side,
+                force=[0, 0, 200 + random.uniform(-5, 5)],
+                torque=[0, 0, 0],
+            ) for side in ("left_foot", "right_foot")],
+            stamp=time.monotonic_ns() - t0,
         )
-        pub.put(msg.SerializeToString())
+        state_pub.put(robot_pb2.Envelope(topic="state", timestamp=time.time_ns(), state=state).SerializeToString())
+
+        command = robot_pb2.Command(
+            kp=100.0, kd=10.0, position=q, velocity=dq, torque=[0.0] * JOINTS,
+            state_stamp=state.stamp, state_hold=random.randint(50_000, 200_000),
+        )
+        command_pub.put(robot_pb2.Envelope(topic="command", timestamp=time.time_ns(), command=command).SerializeToString())
         time.sleep(1 / args.hz)
 except KeyboardInterrupt:
     pass
