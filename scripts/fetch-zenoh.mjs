@@ -16,9 +16,17 @@ const download = async (repo, prefix) => {
   const name = `${prefix}-${VERSION}-${triple}-standalone.zip`;
   const url = `https://github.com/eclipse-zenoh/${repo}/releases/download/${VERSION}/${name}`;
   console.log("get", url);
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`);
-  return new AdmZip(Buffer.from(await res.arrayBuffer()));
+  for (let attempt = 1; ; attempt++) {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`);
+      return new AdmZip(Buffer.from(await res.arrayBuffer()));
+    } catch (e) {
+      if (attempt === 5) throw e;
+      console.warn(`${e.message}, retrying (${attempt}/5)`);
+      await new Promise((r) => setTimeout(r, attempt * 3000));
+    }
+  }
 };
 
 const pick = (zip, re) => {
