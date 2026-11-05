@@ -2,7 +2,7 @@ import { Fragment, useRef, useState } from "react";
 import { Plug, Unplug, Trash2, Pause, Play, Eraser, FileCode2 } from "lucide-react";
 import { useStore, getRuntime } from "../lib/store";
 import type { DeviceConfig, LatencyConfig, TimeUnit } from "../lib/types";
-import { isCanonical, listMessageTypes } from "../lib/proto";
+import { matchesSchema, listMessageTypes } from "../lib/proto";
 import type { QueryResult } from "../lib/runtime";
 import { fmtMs, latencyStats } from "../lib/latency";
 import { TopologyGraph, shortZid } from "./TopologyGraph";
@@ -115,9 +115,9 @@ function Live({ device }: { device: DeviceConfig }) {
                             <span>{k.bytes!.length} bytes</span>
                             {k.decodeError
                               ? <Badge tone="red">{k.decodeError}</Badge>
-                              : isCanonical(decoder.messageType, k.bytes!)
+                              : matchesSchema(decoder.messageType, k.bytes!)
                                 ? <Badge tone="emerald">matches schema</Badge>
-                                : <Badge tone="amber">decoded, but re-encoding differs: the type may be wrong</Badge>}
+                                : <Badge tone="amber">decoded, but it has fields the schema lacks or mistyped ones: the type may be wrong</Badge>}
                           </div>
                           {!k.decodeError && <pre className="max-h-96 overflow-auto whitespace-pre-wrap break-all font-mono text-xs text-zinc-300">{JSON.stringify(k.value, null, 2)}</pre>}
                         </td>

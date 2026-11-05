@@ -147,9 +147,9 @@ JSON field (`header.stamp`, with the field names exactly as written in the `.pro
 64-bit integers and bytes are shown as strings to keep full precision, and enums by name.
 
 A payload that does not decode with the chosen type is counted as a decode error on its row.
-A payload can also decode without error while being the wrong type, so the expanded row re-encodes the
-message and compares it with what was received: `matches schema` is a good sign, while
-`re-encoding differs` means the type is probably wrong.
+A payload can also decode without error while being the wrong type, so the expanded row checks that every
+field on the wire exists in the schema with a fitting type: `matches schema` is a good sign, while
+a warning about unknown or mistyped fields means the type is probably wrong.
 
 In a config file, a schema is either inline (`{ "name": "robot.proto", "source": "syntax = ..." }`) or a
 path relative to the config (`{ "path": "robot.proto" }`), read when the config is imported. The path form
