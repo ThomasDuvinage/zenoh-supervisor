@@ -1,4 +1,5 @@
 import { Config, Duration, Reply, ReplyError, Session, Subscriber, Sample, SampleKind, WhatAmI } from "@eclipse-zenoh/zenoh-ts";
+import { decodeProto } from "./proto";
 import type { DeviceConfig, LatencyConfig, Status, SubscriptionConfig, TimeUnit } from "./types";
 
 const HISTORY = 60;
@@ -32,7 +33,8 @@ function sentTimeMs(lat: LatencyConfig, sample: Sample, value: unknown): number 
     for (const part of (lat.field ?? "").split(".").filter(Boolean)) {
       v = typeof v === "object" && v !== null ? (v as Record<string, unknown>)[part] : undefined;
     }
-    if (typeof v === "string") return parseIso(v, lat.naive ?? "utc");
+    // 64-bit protobuf integers decode to decimal strings
+    if (typeof v === "string") return /^-?\d+(\.\d+)?$/.test(v.trim()) ? Number(v) * factor : parseIso(v, lat.naive ?? "utc");
   }
   return typeof v === "number" && Number.isFinite(v) ? v * factor : undefined;
 }
@@ -42,6 +44,11 @@ export interface KeyState {
   subId: string;
   raw: string;
   value: unknown;
+  /** protobuf only: the last payload as received, to check it against the schema on demand */
+  bytes?: Uint8Array;
+  /** protobuf only: payloads that did not decode with the configured type */
+  decodeErrors: number;
+  decodeError?: string;
   count: number;
   lastTs: number;
   /** numeric samples, newest last, for the sparkline */
@@ -426,15 +433,34 @@ export class DeviceRuntime {
 
     // arrival time taken first, with sub-ms resolution
     const arrival = performance.timeOrigin + performance.now();
-    const raw = sample.payload().toString();
+    let raw: string;
+    let value: unknown;
+    let bytes: Uint8Array | undefined;
+    let decodeError: string | undefined;
+    if (sub.decoder?.kind === "protobuf") {
+      bytes = sample.payload().toBytes();
+      try {
+        value = decodeProto(sub.decoder.messageType, bytes);
+        raw = JSON.stringify(value);
+      } catch (e) {
+        decodeError = e instanceof Error ? e.message : String(e);
+        value = raw = `<${bytes.length} bytes, not a ${sub.decoder.messageType}>`;
+      }
+    } else {
+      raw = sample.payload().toString();
+      value = parsePayload(raw);
+    }
     this.totalMessages++;
     let k = this.keys.get(key);
     if (!k) {
-      k = { key, subId: sub.id, raw, value: raw, count: 0, lastTs: now, history: [], times: [], lat: [], latCount: 0, latMin: Infinity, latMissing: 0 };
+      k = { key, subId: sub.id, raw, value: raw, decodeErrors: 0, count: 0, lastTs: now, history: [], times: [], lat: [], latCount: 0, latMin: Infinity, latMissing: 0 };
       this.keys.set(key, k);
     }
     k.raw = raw;
-    k.value = parsePayload(raw);
+    k.value = value;
+    k.bytes = bytes;
+    k.decodeError = decodeError;
+    if (decodeError) k.decodeErrors++;
     k.count++;
     k.lastTs = now;
     k.times.push(now);
