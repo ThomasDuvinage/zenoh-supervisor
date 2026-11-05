@@ -1,7 +1,7 @@
-# Zenoh Supervisor (draft)
+# Zenoh Supervisor
 
 Read-only dashboard to watch one or more devices (robots, servers, anything that
-speaks Zenoh) from the browser. React + Vite + Tailwind + `@eclipse-zenoh/zenoh-ts`.
+speaks Zenoh): live values, who is online, queries, network topology and latency.
 
 ## Install
 
@@ -25,66 +25,84 @@ The app bundles `zenohd` and the remote-api plugin, so you do not need to instal
 
 ### Web version
 
-Hosted: https://thomasduvinage.github.io/zenoh-supervisor/ (built from `main` into the `gh-pages` branch).
-It is served over HTTPS, so browsers only allow `ws://localhost` bridges or `wss://` ones.
+Use the hosted site: https://thomasduvinage.github.io/zenoh-supervisor/
 
-Or build it yourself:
-
-```bash
-npm install
-npm run dev        # http://localhost:5173
-npm run build      # static files in dist/, serve with any web server
-```
-
-The browser cannot open raw Zenoh TCP (port 7447), so it needs a router running the
-**zenoh-plugin-remote-api** bridge. The stock `eclipse/zenoh` image does not include it.
+It is served over HTTPS, so browsers only allow bridges at `ws://localhost` or `wss://...`.
+For plain `ws://` bridges on your network, use the desktop app or serve the site yourself
+(see below).
 
 ### From source
 
-Requirements: Node.js 20+, a stable [Rust toolchain](https://rustup.rs), and on Linux the
-Tauri system libraries:
+Requirements: Node.js 20+ and, for the desktop app, a stable [Rust toolchain](https://rustup.rs).
+On Linux, install the Tauri system libraries first:
 
 ```bash
 sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libsoup-3.0-dev libssl-dev
 ```
 
+Windows and macOS need the usual [Tauri prerequisites](https://tauri.app/start/prerequisites/)
+(MSVC build tools and WebView2, or Xcode command line tools).
+
 ```bash
-git clone git@github.com:ThomasDuvinage/zenoh-supervisor.git
+git clone https://github.com/ThomasDuvinage/zenoh-supervisor.git
 cd zenoh-supervisor
 npm ci
+
+# Desktop app
 npm run fetch:zenoh      # downloads zenohd + remote-api plugin for your machine
-npm run tauri dev        # run the desktop app with hot reload
+npm run tauri dev        # run with hot reload
 npm run tauri build      # installers in src-tauri/target/release/bundle/
+
+# Web version only
+npm run dev              # http://localhost:5173
+npm run build            # static files in dist/, serve with any web server
 ```
 
-Windows and macOS need the usual Tauri prerequisites (MSVC build tools and WebView2 on
-Windows, Xcode command line tools on macOS). See the
-[Tauri prerequisites](https://tauri.app/start/prerequisites/).
+On Linux, run from a regular terminal: the environment of a snap-installed VS Code breaks GTK.
 
 ## Usage
+
+The browser cannot open raw Zenoh TCP (port 7447), so the supervisor talks to a router that
+runs the **zenoh-plugin-remote-api** bridge (a WebSocket, `ws://host:10000` by default).
+The stock `eclipse/zenoh` image does not include it.
 
 1. **Get a router with the bridge.** Either:
    - desktop app: click **Start local router** in the sidebar and pick a Zenoh config
      (try `examples/single-router/router.json5`). The app starts the bundled `zenohd`
-     and adds a connection to its WebSocket port for you; or
+     and adds the connection for you; or
    - run your own: `zenohd -c router.json5` with `plugins: { remote_api: { websocket_port: "10000" } }`.
-2. **Add a device.** Use **Add device** with a name and the bridge URL (`ws://host:10000`).
-   Connections can be grouped, auto-connect on start, and are read-only by default.
-3. **Subscribe.** Open the device and add key expressions, e.g. `robot1/sensors/**`
-   (data) or `devices/*/alive` (liveliness). Set a unit, min/max and a stale timeout to get
-   out-of-range and stale flags.
-4. **Watch.** The Overview shows every connection and the merged network graph; each device
-   has tabs for live values, log, queries, topology and (if you turn read-only off) publish.
-5. **Save your setup.** Import, export or reset the config from the sidebar buttons (see Config).
+2. **Add a device.** Click **Add device**, enter a name and the bridge URL (`ws://host:10000`).
+   Connections can be grouped and set to connect on start. They are read-only by default.
+3. **Subscribe.** Open the device and add key expressions, for example `robot1/sensors/**`
+   (data) or `devices/*/alive` (liveliness). Optionally set a unit, min/max and a stale timeout
+   to get out-of-range and stale flags.
+4. **Watch.** See the tabs below.
+5. **Save your setup.** Import, export or reset the config with the sidebar buttons (see Config).
 
-Try it without hardware: follow [examples/single-router](examples/single-router/README.md)
+Try it without hardware: [examples/single-router](examples/single-router/README.md)
 (one router, one fake robot) or [examples/two-routers](examples/two-routers/README.md).
+
+### What you can see
+
+- **Overview:** every connection with its status, topic count, msg/s, devices alive, and stale
+  or out-of-range counts, plus one network graph merging all connections.
+- **Live values:** latest value, sparkline, rate and age per topic, with `stale` and
+  out-of-range flags.
+- **Liveliness:** which devices are online, with no heartbeat messages needed.
+- **Log:** filter, pause, clear and export as JSON.
+- **Queries:** run a `get` on any selector (device info, config, version) and see every reply
+  with its timing and errors.
+- **Topology:** the routers and peers the bridge is linked to (zid, role, locators). A bridge
+  only sees its direct neighbours; connect to more routers to see more.
+- **Publish:** only available once you turn read-only off for a connection.
+
+Connections reconnect automatically with backoff, and can be added or removed at any time.
 
 ## Config
 
-Defaults come from `public/supervisor.config.json` on first start, then live in
-the browser's localStorage. Edit them from the UI, or use the sidebar buttons to
-import / export / reset to the file.
+On first start the supervisor loads `supervisor.config.json` (the default is in `public/`), then
+keeps your changes in the browser's local storage. Edit from the UI, or use the sidebar
+buttons to import, export or reset to the file.
 
 ```jsonc
 {
@@ -102,62 +120,17 @@ import / export / reset to the file.
 }
 ```
 
-## What it does
+## Latency
 
-- Several connections at once, added or removed on the fly; auto-reconnect with backoff.
-- Per connection: subscribe to any key expression (data or liveliness), add/remove live.
-- Overview: status, topic count, msg/s, devices alive, stale and out-of-range counts.
-- Live table: latest value, sparkline, rate, age, `stale` / out-of-range flags.
-- Liveliness: who is online, no heartbeat messages needed.
-- Log with filter and JSON export; pause and clear.
-- Queries tab: `get` on any selector (device info, config, version) and show every reply, with timing and error replies.
-- Topology tab: the routers and peers the bridge is linked to (zid, role, link locators), live on transport/link events. Overview merges all connections into one network graph, joined on zid. A bridge only sees its direct neighbours; connect to more routers to see more.
-- Read-only by default; Publish tab only when you turn it off.
+Each subscription can measure latency without publishing or querying anything, so it adds no
+traffic. Pick a source: the Zenoh message timestamp, an attachment holding an epoch number, or
+a field of a JSON payload (epoch number or ISO date).
 
-## Latency (passive)
+Latency is the browser's receive time minus the send time, so it includes the bridge and
+WebSocket hop. Treat it as a proxy for the delay your real consumer sees.
 
-Subscriptions can have a latency source: the Zenoh message timestamp, an attachment
-holding an epoch number, or a field of a JSON payload (epoch number or ISO date).
-latency = browser receive time - send time. Nothing is published or queried, so it
-adds no traffic and cannot delay the devices; stats are computed on the UI tick, not per message.
-
-- Epoch numbers are UTC, so timezones don't matter. ISO strings without a timezone are read
-  as UTC by default (setting: UTC or browser-local); `Date.parse` alone would use the browser's zone.
-- Clocks out of sync: the delay is a one-way delay, so a constant offset shifts it.
-  Use **Relative** mode (delay above the lowest seen), or a per-subscription clock offset
-  (type it, or **Align** to set it from the lowest delay seen). Offsets are per emitter,
-  because each subscription usually maps to a different clock.
-- It measures emitter -> this browser, including the bridge and WebSocket hop: a proxy for
-  the delay your real consumer sees, not the same thing.
-
-## Ideas not built yet
-
-- Alert rules with notifications (browser notification, webhook) and an alert history.
-- Longer history with real charts (uPlot/Recharts), CSV export, time range picker.
-- Message size and bandwidth per topic; latency from payload timestamps.
-- Payload decoders per subscription (JSON path, protobuf, CDR for ROS 2).
-- Image topics (JPEG frames) and 3D/map widgets for robot pose.
-- Saved dashboards per group, drag-and-drop layout.
-- Auth: token on the bridge, ACL so the supervisor identity can only subscribe.
-
-## Desktop app (Tauri)
-
-Same frontend, wrapped in a native shell. "Start local router" runs a bundled `zenohd` with the
-remote-api plugin on a Zenoh config you pick, then connects to its `ws://127.0.0.1:<port>`.
-This section is for building it yourself; end users should use the installers above.
-
-```bash
-npm run fetch:zenoh     # once per target: downloads zenohd + plugin into src-tauri/ (gitignored)
-npm run tauri dev
-npm run tauri build     # installers in src-tauri/target/release/bundle/
-```
-
-- The sidecar is called `supervisor-zenohd` so it never clashes with a system `zenohd`; if it is
-  missing the app falls back to `zenohd` on PATH.
-- The bundled plugin directory overrides `plugins_loading/search_dirs` from your config.
-- Zenoh version is pinned in `scripts/fetch-zenoh.mjs` (`ZENOH_VERSION`); `zenohd` and the plugin must match.
-- CI (`.github/workflows/build.yml`) builds Linux, Windows and macOS (arm64 + x64) installers.
-  Pushing a tag like `v0.1.0` attaches them to a draft GitHub release; publish it from the Releases page.
-- The website is built by `.github/workflows/pages.yml` on every push to `main` and published to the
-  `gh-pages` branch. One-time setup: repo **Settings -> Pages -> Deploy from a branch -> `gh-pages` / root**.
-- Run from a non-snap terminal; VS Code's snap env breaks GTK (see GSETTINGS_SCHEMA_DIR).
+- Epoch numbers are UTC. ISO strings without a timezone are read as UTC by default
+  (you can switch to browser-local).
+- It is a one-way delay, so clocks that are out of sync shift it by a constant. Use **Relative**
+  mode (delay above the lowest seen), or set a clock offset per subscription: type it, or click
+  **Align** to set it from the lowest delay seen.
