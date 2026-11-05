@@ -61,9 +61,12 @@ export interface DeviceConfig {
   subscriptions: SubscriptionConfig[];
 }
 
+/** A schema in a config file: inline source, or the path of a .proto file (read when the config is imported) */
+export type SchemaEntry = ProtoFile | { name?: string; path: string };
+
 export interface AppConfig {
   version: 1;
   devices: DeviceConfig[];
-  /** .proto files available to the Protobuf decoders */
-  schemas?: ProtoFile[];
+  /** .proto files available to the Protobuf decoders. Paths are relative to the config file. */
+  schemas?: SchemaEntry[];
 }

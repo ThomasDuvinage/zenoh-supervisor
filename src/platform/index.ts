@@ -22,14 +22,17 @@ export async function stopLocalRouter(): Promise<void> {
   await invoke("stop_router");
 }
 
+/** Read a file by path. Desktop only. */
+export async function readTextFile(path: string): Promise<string> {
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<string>("read_text_file", { path });
+}
+
 /** Native "open file" dialog + read. null if cancelled. Desktop only. */
-export async function openTextFile(extensions: string[]): Promise<string | null> {
-  const [{ open }, { invoke }] = await Promise.all([
-    import("@tauri-apps/plugin-dialog"),
-    import("@tauri-apps/api/core"),
-  ]);
+export async function openTextFile(extensions: string[]): Promise<{ path: string; text: string } | null> {
+  const { open } = await import("@tauri-apps/plugin-dialog");
   const path = await open({ filters: [{ name: extensions.join(", "), extensions }] });
-  return typeof path === "string" ? invoke<string>("read_text_file", { path }) : null;
+  return typeof path === "string" ? { path, text: await readTextFile(path) } : null;
 }
 
 /** Native "save as" dialog + write. Returns false if cancelled. Desktop only. */

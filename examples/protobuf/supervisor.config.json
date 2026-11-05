@@ -2,8 +2,7 @@
   "version": 1,
   "schemas": [
     {
-      "name": "robot.proto",
-      "source": "syntax = \"proto3\";\n\npackage demo;\n\nmessage Config {\n  string config = 1;\n}\n\nmessage BodySensor {\n  string name = 1;\n  repeated double orientation = 2;         // quaternion, (w, x, y, z)\n  repeated double angular_velocity = 3;    // (x, y, z)\n  repeated double linear_acceleration = 4; // (x, y, z)\n}\n\nmessage ForceSensor {\n  string name = 1;\n  repeated double force = 2;  // (x, y, z), sensor frame\n  repeated double torque = 3; // (x, y, z), sensor frame\n}\n\nmessage State {\n  repeated double position = 1;\n  repeated double velocity = 2;\n  repeated double torque = 3;\n  repeated BodySensor body_sensors = 4;\n  repeated ForceSensor force_sensors = 5;\n  uint64 stamp = 6; // sender steady clock [ns], echoed in Command.state_stamp\n}\n\nmessage Command {\n  double kp = 1;\n  double kd = 2;\n\n  repeated double position = 3;\n  repeated double velocity = 4;\n  repeated double torque = 5;\n  uint64 state_stamp = 6; // State.stamp of the latest state received\n  uint64 state_hold = 7;  // [ns] that state was held before this command was sent\n}\n\nmessage Envelope {\n  string topic = 1;\n  uint64 timestamp = 2; // send time, epoch nanoseconds\n\n  oneof payload {\n    Config config = 3;\n    State state = 4;\n    Command command = 5;\n  }\n}\n"
+      "path": "robot.proto"
     }
   ],
   "devices": [

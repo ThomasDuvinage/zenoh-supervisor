@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { DeviceRuntime } from "./runtime";
+import { resolveSchemas, type ConfigOrigin } from "./config";
 import { setProtoFiles, validateProtoFiles, type ProtoFile } from "./proto";
 import type { AppConfig, DeviceConfig, Status, SubscriptionConfig } from "./types";
 
@@ -33,7 +34,8 @@ interface State {
   removeSchema(name: string): void;
   connect(id: string): Promise<void>;
   disconnect(id: string): Promise<void>;
-  importConfig(cfg: AppConfig): Promise<void>;
+  /** Replace the setup. Devices are imported even when a schema fails to load; the error is then thrown. */
+  importConfig(cfg: AppConfig, origin?: ConfigOrigin): Promise<void>;
   exportConfig(): AppConfig;
   resetToFile(): Promise<void>;
 }
@@ -155,26 +157,37 @@ export const useStore = create<State>()(
         connect: async (id) => runtimes.get(id)?.connect(),
         disconnect: async (id) => runtimes.get(id)?.disconnect(),
 
-        async importConfig(cfg) {
+        async importConfig(cfg, origin) {
+          let schemas: ProtoFile[] = [];
+          let schemaError: unknown;
+          try {
+            schemas = await resolveSchemas(cfg.schemas, origin);
+            const bad = setProtoFiles(schemas);
+            if (bad) schemaError = new Error(bad);
+          } catch (e) {
+            schemaError = e;
+            setProtoFiles([]);
+          }
           for (const rt of runtimes.values()) await rt.disconnect();
           runtimes.clear();
-          const schemas = cfg.schemas ?? [];
-          setProtoFiles(schemas);
           set({ devices: cfg.devices, schemas, statuses: {}, selectedId: null });
           for (const d of cfg.devices) {
             const rt = ensureRuntime(d);
             if (d.autoConnect) void rt.connect();
           }
+          if (schemaError) throw schemaError;
         },
 
         exportConfig: () => ({ version: 1, devices: get().devices, schemas: get().schemas }),
 
         async resetToFile() {
           try {
-            const res = await fetch(`${import.meta.env.BASE_URL}supervisor.config.json`, { cache: "no-store" });
-            if (res.ok) await get().importConfig((await res.json()) as AppConfig);
-          } catch {
-            /* no default config file, start empty */
+            const url = `${import.meta.env.BASE_URL}supervisor.config.json`;
+            const res = await fetch(url, { cache: "no-store" });
+            if (res.ok) await get().importConfig((await res.json()) as AppConfig, { url });
+          } catch (e) {
+            // no default config file starts empty; a schema that failed to load is worth a trace
+            console.warn("default config:", e);
           }
         },
       };

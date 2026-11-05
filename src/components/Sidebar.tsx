@@ -35,8 +35,8 @@ export function Sidebar() {
   const doImport = async () => {
     try {
       if (isDesktop) {
-        const text = await openTextFile(["json"]);
-        if (text !== null) await importConfig(JSON.parse(text));
+        const f = await openTextFile(["json"]);
+        if (f) await importConfig(JSON.parse(f.text), { file: f.path });
         return;
       }
       const input = document.createElement("input");
