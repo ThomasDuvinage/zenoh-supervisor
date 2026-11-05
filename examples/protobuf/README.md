@@ -10,7 +10,7 @@ protoc --python_out=. robot.proto
 python pub_proto.py robot1
 ```
 
-Import `supervisor.config.json` in the desktop app (upload icon). It points to `robot.proto` next to it and has a
+Import `supervisor.config.json` in the desktop app (upload icon). It points to `robot.proto` next to it and has
 subscriptions on `demo/*/state` and `demo/*/command`, both decoded as `demo.Envelope`. In the **Live** tab, click a row to see the
 decoded message and whether it matches the schema; the **Log** tab shows each message as JSON.
 
