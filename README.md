@@ -87,14 +87,15 @@ The stock `eclipse/zenoh` image does not include it.
 5. **Save your setup.** Import, export or reset the config with the sidebar buttons (see Config).
 
 Try it without hardware: [examples/single-router](examples/single-router/README.md)
-(one router, one fake robot) or [examples/two-routers](examples/two-routers/README.md).
+(one router, one fake robot), [examples/two-routers](examples/two-routers/README.md), or
+[examples/protobuf](examples/protobuf/README.md) (a robot publishing Protobuf messages).
 
 ### What you can see
 
 - **Overview:** every connection with its status, topic count, msg/s, devices alive, and stale
   or out-of-range counts, plus one network graph merging all connections.
 - **Live values:** latest value, sparkline, rate and age per topic, with `stale` and
-  out-of-range flags.
+  out-of-range flags. Protobuf topics expand on click to the decoded message (see Protobuf).
 - **Liveliness:** which devices are online, with no heartbeat messages needed.
 - **Log:** filter, pause, clear and export as JSON.
 - **Queries:** run a `get` on any selector (device info, config, version) and see every reply
@@ -114,6 +115,7 @@ buttons to import, export or reset to the file.
 ```jsonc
 {
   "version": 1,
+  "schemas": [{ "path": "robot.proto" }],  // optional, see Protobuf
   "devices": [{
     "id": "robot1", "name": "Robot 1", "url": "ws://10.0.0.5:10000",
     "group": "Fleet A", "autoConnect": true,
@@ -126,6 +128,35 @@ buttons to import, export or reset to the file.
   }]
 }
 ```
+
+## Protobuf
+
+Payloads sent as Protobuf can be decoded into readable values. Everything runs in the app; nothing
+is sent anywhere.
+
+1. **Load the schema.** In a device's **Subscriptions** tab, click **Add .proto files** and select
+   the schema together with every file it imports. Files are parsed as one set, so the order does not
+   matter, and a missing import is reported.
+2. **Pick the type.** When adding a subscription, choose the message under **Payload decoder**
+   (for example `demo.Envelope`). A subscription decodes everything it receives as that one type.
+3. **Read it.** The Live table shows the decoded message. Click a row to see it expanded, with
+   a check that it matches the schema. The Log tab shows each message as JSON, and the filter searches it.
+
+Decoded messages are plain JSON, so the other features work on them: a latency source can be a
+JSON field (`header.stamp`, with the field names exactly as written in the `.proto`).
+64-bit integers and bytes are shown as strings to keep full precision, and enums by name.
+
+A payload that does not decode with the chosen type is counted as a decode error on its row.
+A payload can also decode without error while being the wrong type, so the expanded row re-encodes the
+message and compares it with what was received: `matches schema` is a good sign, while
+`re-encoding differs` means the type is probably wrong.
+
+In a config file, a schema is either inline (`{ "name": "robot.proto", "source": "syntax = ..." }`) or a
+path relative to the config (`{ "path": "robot.proto" }`), read when the config is imported. The path form
+works in the desktop app and for the default `public/supervisor.config.json`; a config uploaded in the
+browser has no location to resolve it against, so inline the source or add the files in the UI.
+A subscription selects its type with `"decoder": { "kind": "protobuf", "messageType": "demo.Envelope" }`.
+See [examples/protobuf](examples/protobuf/README.md).
 
 ## Latency
 
