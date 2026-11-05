@@ -158,4 +158,6 @@ npm run tauri build     # installers in src-tauri/target/release/bundle/
 - Zenoh version is pinned in `scripts/fetch-zenoh.mjs` (`ZENOH_VERSION`); `zenohd` and the plugin must match.
 - CI (`.github/workflows/build.yml`) builds Linux, Windows and macOS (arm64 + x64) installers.
   Pushing a tag like `v0.1.0` attaches them to a draft GitHub release; publish it from the Releases page.
+- The website is built by `.github/workflows/pages.yml` on every push to `main` and published to the
+  `gh-pages` branch. One-time setup: repo **Settings -> Pages -> Deploy from a branch -> `gh-pages` / root**.
 - Run from a non-snap terminal; VS Code's snap env breaks GTK (see GSETTINGS_SCHEMA_DIR).
