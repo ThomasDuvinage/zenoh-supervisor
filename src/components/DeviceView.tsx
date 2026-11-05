@@ -1,7 +1,8 @@
-import { useState } from "react";
-import { Plug, Unplug, Trash2, Pause, Play, Eraser } from "lucide-react";
+import { Fragment, useRef, useState } from "react";
+import { Plug, Unplug, Trash2, Pause, Play, Eraser, FileCode2 } from "lucide-react";
 import { useStore, getRuntime } from "../lib/store";
 import type { DeviceConfig, LatencyConfig, TimeUnit } from "../lib/types";
+import { isCanonical, listMessageTypes } from "../lib/proto";
 import type { QueryResult } from "../lib/runtime";
 import { fmtMs, latencyStats } from "../lib/latency";
 import { TopologyGraph, shortZid } from "./TopologyGraph";
@@ -58,6 +59,7 @@ function Live({ device }: { device: DeviceConfig }) {
   const keys = [...(rt?.keys.values() ?? [])].sort((a, b) => a.key.localeCompare(b.key));
   const alive = [...(rt?.alive.keys() ?? [])].sort();
   const subOf = (id: string) => device.subscriptions.find((s) => s.id === id);
+  const [open, setOpen] = useState<string | null>(null);
 
   return (
     <div className="space-y-6">
@@ -90,15 +92,38 @@ function Live({ device }: { device: DeviceConfig }) {
                 const age = now - k.lastTs;
                 const stale = !!sub?.staleAfterSec && age > sub.staleAfterSec * 1000;
                 const oor = typeof k.value === "number" && ((sub?.min !== undefined && k.value < sub.min) || (sub?.max !== undefined && k.value > sub.max));
+                const decoder = sub?.decoder;
+                const expanded = open === k.key && decoder && k.bytes;
                 return (
-                  <tr key={k.key} className="border-t border-zinc-800">
-                    <td className="px-3 py-2 font-mono text-xs">{k.key}</td>
-                    <td className={`max-w-xs truncate font-mono ${oor ? "text-red-400" : ""}`}>{fmtValue(k.value)}{sub?.unit && typeof k.value === "number" ? ` ${sub.unit}` : ""}</td>
-                    <td><Sparkline data={k.history} alert={oor} /></td>
-                    <td className="tabular-nums text-zinc-400">{rt!.rate(k, now).toFixed(1)} Hz</td>
-                    <td className="text-zinc-400">{fmtAge(age)}</td>
-                    <td>{stale ? <Badge tone="amber">stale</Badge> : oor ? <Badge tone="red">range</Badge> : <Badge tone="emerald">ok</Badge>}</td>
-                  </tr>
+                  <Fragment key={k.key}>
+                    <tr className={`border-t border-zinc-800 ${decoder ? "cursor-pointer hover:bg-zinc-900" : ""}`} onClick={() => decoder && setOpen(open === k.key ? null : k.key)}>
+                      <td className="px-3 py-2 font-mono text-xs">{k.key}</td>
+                      <td className={`max-w-xs truncate font-mono ${oor ? "text-red-400" : ""}`}>{fmtValue(k.value)}{sub?.unit && typeof k.value === "number" ? ` ${sub.unit}` : ""}</td>
+                      <td><Sparkline data={k.history} alert={oor} /></td>
+                      <td className="tabular-nums text-zinc-400">{rt!.rate(k, now).toFixed(1)} Hz</td>
+                      <td className="text-zinc-400">{fmtAge(age)}</td>
+                      <td>
+                        {k.decodeErrors > 0 ? <Badge tone="red">{k.decodeErrors} decode errors</Badge>
+                          : stale ? <Badge tone="amber">stale</Badge> : oor ? <Badge tone="red">range</Badge> : <Badge tone="emerald">ok</Badge>}
+                      </td>
+                    </tr>
+                    {expanded && (
+                      <tr className="bg-zinc-950">
+                        <td colSpan={6} className="px-3 py-3">
+                          <div className="mb-2 flex items-center gap-2 text-xs text-zinc-400">
+                            <span className="font-mono">{decoder.messageType}</span>
+                            <span>{k.bytes!.length} bytes</span>
+                            {k.decodeError
+                              ? <Badge tone="red">{k.decodeError}</Badge>
+                              : isCanonical(decoder.messageType, k.bytes!)
+                                ? <Badge tone="emerald">matches schema</Badge>
+                                : <Badge tone="amber">decoded, but re-encoding differs: the type may be wrong</Badge>}
+                          </div>
+                          {!k.decodeError && <pre className="max-h-96 overflow-auto whitespace-pre-wrap break-all font-mono text-xs text-zinc-300">{JSON.stringify(k.value, null, 2)}</pre>}
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
                 );
               })}
             </tbody>
@@ -248,6 +273,7 @@ function Topology({ device }: { device: DeviceConfig }) {
 function Subs({ device }: { device: DeviceConfig }) {
   const { addSubscription, removeSubscription } = useStore();
   const rt = getRuntime(device.id);
+  const [msgType, setMsgType] = useState("");
   const [keyexpr, setKeyexpr] = useState("");
   const [kind, setKind] = useState<"data" | "liveliness">("data");
   const [label, setLabel] = useState("");
@@ -267,13 +293,17 @@ function Subs({ device }: { device: DeviceConfig }) {
       keyexpr, kind, label: label || undefined, unit: unit || undefined,
       staleAfterSec: num(stale), min: num(min), max: num(max),
       latency: latSource ? { source: latSource, field: latField || undefined, unit: latUnit, naive: latNaive } : undefined,
+      decoder: msgType && kind === "data" ? { kind: "protobuf", messageType: msgType } : undefined,
     });
-    setLatSource(""); setLatField("");
+    setLatSource(""); setLatField(""); setMsgType("");
     setKeyexpr(""); setLabel(""); setStale(""); setMin(""); setMax(""); setUnit("");
   };
 
+  const types = listMessageTypes();
+
   return (
     <div className="space-y-6">
+      <Schemas />
       <div className="card divide-y divide-zinc-800">
         {device.subscriptions.length === 0 && <div className="px-4 py-6 text-center text-zinc-600">No subscriptions</div>}
         {device.subscriptions.map((s) => (
@@ -284,6 +314,7 @@ function Subs({ device }: { device: DeviceConfig }) {
             {s.staleAfterSec && <Badge>stale {s.staleAfterSec}s</Badge>}
             {(s.min !== undefined || s.max !== undefined) && <Badge>{s.min ?? "−∞"}…{s.max ?? "∞"}{s.unit}</Badge>}
             {s.latency && <Badge tone="emerald">latency: {s.latency.source}{s.latency.field ? `.${s.latency.field}` : ""}</Badge>}
+            {s.decoder && <Badge tone="emerald">protobuf: {s.decoder.messageType}</Badge>}
             {rt?.subErrors.get(s.id) && <Badge tone="red">{rt.subErrors.get(s.id)}</Badge>}
             <button className="btn ml-auto" onClick={() => void removeSubscription(device.id, s.id)}><Trash2 size={14} /></button>
           </div>
@@ -324,8 +355,46 @@ function Subs({ device }: { device: DeviceConfig }) {
             </select>
           </Field>
         )}
+        <Field label="Payload decoder">
+          <select className="input" value={msgType} onChange={(e) => setMsgType(e.target.value)} disabled={kind === "liveliness"}>
+            <option value="">text / number / JSON</option>
+            {types.map((t) => <option key={t} value={t}>protobuf: {t}</option>)}
+          </select>
+        </Field>
         <div className="col-span-2 md:col-span-4"><button className="btn btn-primary">Add subscription</button></div>
       </form>
+    </div>
+  );
+}
+
+function Schemas() {
+  const { schemas, addSchemas, removeSchema } = useStore();
+  const input = useRef<HTMLInputElement>(null);
+  const [error, setError] = useState("");
+
+  const load = async (list: FileList | null) => {
+    if (!list?.length) return;
+    const files = await Promise.all(Array.from(list).map(async (f) => ({ name: f.name, source: await f.text() })));
+    setError(addSchemas(files) ?? "");
+    if (input.current) input.current.value = "";
+  };
+
+  return (
+    <div className="card space-y-3 p-4">
+      <div className="flex items-center gap-3">
+        <h2 className="text-sm font-medium text-zinc-300">Protobuf schemas</h2>
+        <span className="text-xs text-zinc-500">{listMessageTypes().length} message types</span>
+        <button className="btn ml-auto" onClick={() => input.current?.click()}><FileCode2 size={14} /> Add .proto files</button>
+        <input ref={input} type="file" multiple accept=".proto" className="hidden" onChange={(e) => void load(e.target.files)} />
+      </div>
+      <p className="text-xs text-zinc-500">Select a schema together with the files it imports. Then pick a message type as payload decoder when adding a subscription.</p>
+      {error && <p className="break-words rounded bg-red-950 p-2 text-xs text-red-300">{error}</p>}
+      {schemas.map((f) => (
+        <div key={f.name} className="flex items-center gap-2 text-sm">
+          <span className="font-mono text-xs">{f.name}</span>
+          <button className="btn ml-auto" onClick={() => removeSchema(f.name)}><Trash2 size={14} /></button>
+        </div>
+      ))}
     </div>
   );
 }
