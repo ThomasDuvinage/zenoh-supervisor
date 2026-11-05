@@ -25,6 +25,11 @@ The app bundles `zenohd` and the remote-api plugin, so you do not need to instal
 
 ### Web version
 
+Hosted: https://thomasduvinage.github.io/zenoh-supervisor/ (built from `main` into the `gh-pages` branch).
+It is served over HTTPS, so browsers only allow `ws://localhost` bridges or `wss://` ones.
+
+Or build it yourself:
+
 ```bash
 npm install
 npm run dev        # http://localhost:5173

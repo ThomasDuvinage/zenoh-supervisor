@@ -148,7 +148,7 @@ export const useStore = create<State>()(
 
         async resetToFile() {
           try {
-            const res = await fetch("/supervisor.config.json", { cache: "no-store" });
+            const res = await fetch(`${import.meta.env.BASE_URL}supervisor.config.json`, { cache: "no-store" });
             if (res.ok) await get().importConfig((await res.json()) as AppConfig);
           } catch {
             /* no default config file, start empty */
